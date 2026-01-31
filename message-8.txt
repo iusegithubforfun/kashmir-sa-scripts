@@ -1,0 +1,154 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local InputRemote = ReplicatedStorage:WaitForChild("Main"):WaitForChild("Input")
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HealingCoreUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 220, 0, 200)
+Frame.Position = UDim2.new(0, 20, 1, -220)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local function createButton(name, text, y)
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.Size = UDim2.new(1, -20, 0, 30)
+	btn.Position = UDim2.new(0, 10, 0, y)
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Font = Enum.Font.SourceSansBold
+	btn.TextSize = 18
+	btn.Text = text
+	btn.Parent = Frame
+	return btn
+end
+
+local usernameBox = Instance.new("TextBox")
+usernameBox.Size = UDim2.new(1, -20, 0, 25)
+usernameBox.Position = UDim2.new(0, 10, 0, 10)
+usernameBox.PlaceholderText = "Target Username"
+usernameBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+usernameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+usernameBox.Font = Enum.Font.SourceSans
+usernameBox.TextSize = 16
+usernameBox.Parent = Frame
+
+local healSelfBtn = createButton("HealSelf", "HEAL SELF", 45)
+local stopSelfBtn = createButton("StopHealSelf", "STOP HEALING SELF", 80)
+local healOtherBtn = createButton("HealOther", "HEAL OTHER", 115)
+local stopOtherBtn = createButton("StopHealOther", "STOP HEALING OTHER", 150)
+
+-- State
+local healingSelf = false
+local healingOther = false
+
+-- Cooldown tracking
+local lastPunch = 0
+local lastHeavyPunch = 0
+local PUNCH_CD = 0.5
+local HEAVY_CD = 5
+
+local function canUsePunch()
+	return tick() - lastPunch >= PUNCH_CD
+end
+
+local function canUseHeavy()
+	return tick() - lastHeavyPunch >= HEAVY_CD
+end
+
+-- Healing logic
+local function healTarget(humanoid, hrp)
+	local cf = hrp.CFrame
+
+	-- Ignore logic if TS is active
+	if Lighting:FindFirstChild("TS") and Lighting.TS.Value == true then
+		InputRemote:FireServer("Damage", "Punch", nil, nil, humanoid, cf, true)
+		InputRemote:FireServer("Damage", "HeavyPunch", nil, nil, humanoid, cf, true)
+		InputRemote:FireServer("Damage", "PunchBarrage", nil, nil, humanoid, cf, true)
+		return
+	end
+
+	local missing = humanoid.MaxHealth - humanoid.Health
+
+	if missing >= 30 and canUseHeavy() then
+		InputRemote:FireServer("Damage", "HeavyPunch", nil, nil, humanoid, cf, true)
+		lastHeavyPunch = tick()
+	elseif missing >= 10 and canUsePunch() then
+		InputRemote:FireServer("Damage", "Punch", nil, nil, humanoid, cf, true)
+		lastPunch = tick()
+	elseif missing > 0 then
+		InputRemote:FireServer("Damage", "PunchBarrage", nil, nil, humanoid, cf, true)
+	end
+end
+
+-- Heal Self Loop
+task.spawn(function()
+	while true do
+		if healingSelf then
+			local char = LocalPlayer.Character
+			if char then
+				local hum = char:FindFirstChild("Humanoid")
+				local hrp = char:FindFirstChild("HumanoidRootPart")
+				if hum and hrp and (hum.Health < hum.MaxHealth or (Lighting:FindFirstChild("TS") and Lighting.TS.Value == true)) then
+					healTarget(hum, hrp)
+				end
+			end
+		end
+		task.wait(0.01)
+	end
+end)
+
+-- Heal Other Loop + TP HRP
+task.spawn(function()
+	while true do
+		if healingOther then
+			local name = usernameBox.Text
+			local target = Players:FindFirstChild(name)
+			if target and target.Character then
+				local hum = target.Character:FindFirstChild("Humanoid")
+				local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+				local myChar = LocalPlayer.Character
+				local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+				if hum and hrp and myHRP then
+					if hum.Health < hum.MaxHealth or (Lighting:FindFirstChild("TS") and Lighting.TS.Value == true) then
+						myHRP.CFrame = hrp.CFrame * CFrame.new(0, -10, 0)
+						healTarget(hum, hrp)
+					end
+				end
+			end
+		end
+		task.wait(0.01)
+	end
+end)
+
+-- Button connections
+healSelfBtn.MouseButton1Click:Connect(function()
+	healingSelf = true
+	InputRemote:FireServer("Alternate", "Block")
+end)
+
+stopSelfBtn.MouseButton1Click:Connect(function()
+	healingSelf = false
+	InputRemote:FireServer("x", "Up")
+end)
+
+healOtherBtn.MouseButton1Click:Connect(function()
+	healingOther = true
+end)
+
+stopOtherBtn.MouseButton1Click:Connect(function()
+	healingOther = false
+end)

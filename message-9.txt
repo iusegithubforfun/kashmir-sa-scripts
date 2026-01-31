@@ -1,0 +1,109 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local InputRemote = ReplicatedStorage:WaitForChild("Main"):WaitForChild("Input")
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = "LoopKillUI"
+ScreenGui.ResetOnSpawn = false
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 200, 0, 140)
+Frame.Position = UDim2.new(0, 10, 0, 300)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Active = true
+Frame.Draggable = true
+
+local function createButton(text, yOffset)
+	local button = Instance.new("TextButton", Frame)
+	button.Size = UDim2.new(1, -10, 0, 30)
+	button.Position = UDim2.new(0, 5, 0, yOffset)
+	button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.SourceSansBold
+	button.TextSize = 16
+	button.Text = text
+	return button
+end
+
+local TextBox = Instance.new("TextBox", Frame)
+TextBox.PlaceholderText = "Target Username"
+TextBox.Size = UDim2.new(1, -10, 0, 25)
+TextBox.Position = UDim2.new(0, 5, 0, 5)
+TextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+TextBox.TextColor3 = Color3.new(1, 1, 1)
+TextBox.Font = Enum.Font.SourceSans
+TextBox.TextSize = 14
+
+local LoopKillBtn = createButton("LOOPKILL OTHER", 35)
+local StopLoopKillBtn = createButton("STOP LOOPKILL OTHER", 70)
+
+-- State
+local loopKilling = false
+local damageCheckPaused = false
+local lastHealth = nil
+local lastDamagedTick = tick()
+
+-- Damage Logic
+local function spamDamage(hum, hrp)
+	local cf = hrp.CFrame
+	InputRemote:FireServer("Damage", "Punch", nil, nil, hum, cf, false)
+	InputRemote:FireServer("Damage", "HeavyPunch", nil, nil, hum, cf, false)
+	InputRemote:FireServer("Damage", "PunchBarrage", nil, nil, hum, cf, false)
+end
+
+-- LoopKill Thread
+task.spawn(function()
+	while true do
+		if loopKilling and not damageCheckPaused then
+			local target = Players:FindFirstChild(TextBox.Text)
+			if target and target.Character then
+				local hum = target.Character:FindFirstChild("Humanoid")
+				local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+				local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+				if hum and hrp and myHRP then
+					-- Move under the target
+					myHRP.CFrame = hrp.CFrame * CFrame.new(0, -10, 0)
+
+					-- Fire all damage remotes
+					spamDamage(hum, hrp)
+
+					-- Check if health has changed
+					if lastHealth and hum.Health < lastHealth then
+						lastDamagedTick = tick()
+					end
+					lastHealth = hum.Health
+
+					-- Stop if no damage for 10s
+					if tick() - lastDamagedTick >= 10 then
+						damageCheckPaused = true
+						print("[LoopKill] No damage detected. Pausing spam for 10s.")
+						task.delay(10, function()
+							damageCheckPaused = false
+							lastDamagedTick = tick()
+						end)
+					end
+				end
+			end
+		end
+		task.wait(0.01)
+	end
+end)
+
+-- Button Actions
+LoopKillBtn.MouseButton1Click:Connect(function()
+	loopKilling = true
+	lastDamagedTick = tick()
+	lastHealth = nil
+	damageCheckPaused = false
+	InputRemote:FireServer("Alternate", "Block")
+end)
+
+StopLoopKillBtn.MouseButton1Click:Connect(function()
+	loopKilling = false
+	InputRemote:FireServer("x", "Up")
+end)

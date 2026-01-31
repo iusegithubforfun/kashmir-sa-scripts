@@ -1,0 +1,138 @@
+--EFFECTS DONT REMOVE 
+local char = string.char
+local byte = string.byte
+local sub = string.sub
+local bit = bit32 or bit
+local bxor = bit.bxor
+local concat = table.concat
+local insert = table.insert
+
+
+local scriptEnabled = true
+
+
+local function decodeString(inputString, key)
+    local result = {}
+    for i = 1, #inputString do
+        local decodedChar = char(bxor(byte(sub(inputString, i, i)), byte(sub(key, 1 + ((i - 1) % #key), 1 + ((i - 1) % #key) + 1))) % 256)
+        insert(result, decodedChar)
+    end
+    return concat(result)
+end
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+
+mouse.KeyDown:Connect(function(key)
+    if key == "j" then
+        scriptEnabled = not scriptEnabled
+        print("Script Enabled: " .. tostring(scriptEnabled))
+    end
+end)
+
+
+local function initialActions()
+    if not scriptEnabled then return end
+
+    local rootPart = player.Character.HumanoidRootPart
+
+    rootPart.CFrame = CFrame.new(-284.0437927246094, 447.1768493652344, -1383.6256103515625)
+    wait(0.3)
+    rootPart.CFrame = CFrame.new(-202.20347595214844, 445.6187744140625, -1541.9969482421875)
+    wait(0.3)
+    rootPart.CFrame = CFrame.new(-353.1253967285156, 446.42181396484375, -1621.104248046875)
+    wait(0.3)
+    rootPart.CFrame = CFrame.new(-435.7509765625, 445.442138671875, -1464.02197265625)
+
+    player.Character.Humanoid.Health = 0
+end
+
+initialActions()
+
+
+local function attackOtherPlayers(actionArgs)
+    if not scriptEnabled then return end
+
+    for _, otherPlayer in ipairs(game.Players:GetChildren()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Humanoid") then
+            local args = actionArgs(otherPlayer)
+            game:GetService("ReplicatedStorage"):WaitForChild("Main"):WaitForChild("Input"):FireServer(unpack(args))
+        end
+    end
+end
+
+
+mouse.KeyDown:Connect(function(key)
+    if key == "f" then
+        attackOtherPlayers(function(otherPlayer)
+            return {
+                "Damage", "Punishment", "DashPunch", "Punch",
+                otherPlayer.Character.Humanoid,
+                CFrame.new(otherPlayer.Character.HumanoidRootPart.Position)
+            }
+        end)
+    end
+end)
+
+
+mouse.KeyDown:Connect(function(key)
+    if key == "e" then
+        attackOtherPlayers(function(otherPlayer)
+            return {
+                "Damage", "Kick", "DashPunch", "Punch",
+                otherPlayer.Character.Humanoid,
+                CFrame.new(otherPlayer.Character.HumanoidRootPart.Position)
+            }
+        end)
+    end
+end)
+
+
+mouse.KeyDown:Connect(function(key)
+    if key == "r" then
+        attackOtherPlayers(function(otherPlayer)
+            return {
+                "Damage", "PunchALT", "DashPunch", "Punch",
+                otherPlayer.Character.Humanoid,
+                CFrame.new(otherPlayer.Character.HumanoidRootPart.Position)
+            }
+        end)
+    end
+end)
+
+
+mouse.KeyDown:Connect(function(key)
+    if key == "r" then
+        attackOtherPlayers(function(otherPlayer)
+            return {
+                "Damage", "StandPunch", "DashPunch", "Punch",
+                otherPlayer.Character.Humanoid,
+                CFrame.new(otherPlayer.Character.HumanoidRootPart.Position)
+            }
+        end)
+    end
+end)
+
+mouse.KeyDown:Connect(function(key)
+    if key == "r" then
+        attackOtherPlayers(function(otherPlayer)
+            return {
+                "Damage", "HeavyPunch", "DashPunch", "Punch",
+                otherPlayer.Character.Humanoid,
+                CFrame.new(otherPlayer.Character.HumanoidRootPart.Position)
+            }
+        end)
+    end
+end)
+
+
+mouse.KeyDown:Connect(function(key)
+    if key:lower() == "v" then
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local targetPos = mouse.Hit.Position
+            character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+        end
+    end
+end)
